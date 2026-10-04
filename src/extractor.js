@@ -255,16 +255,30 @@
         const host = document.createElement('div');
         host.id = 'am-extractor-host';
         const root = host.attachShadow({ mode: 'open' });
+        /*
+         * refresh-cw icon: https://lucide.dev/icons/refresh-cw
+         * ISC License — Copyright (c) 2026 Lucide Icons and Contributors
+         * Permission to use, copy, modify, and/or distribute this software for any
+         * purpose with or without fee is hereby granted, provided that the above
+         * copyright notice and this permission notice appear in all copies.
+         * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+         * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+         * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+         * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+         * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+         * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+         * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+         */
         const icon = (name, size = 18) => {
             const paths = {
                 music: '<path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/>',
                 copy: '<rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
                 download: '<path d="M12 3v12m-4-4 4 4 4-4M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/>',
-                refresh: '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.5-2L20 8M4 16l2.4 3A7 7 0 0 0 17.9 17"/>',
+                refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
                 more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
                 close: '<path d="m6 6 12 12M6 18 18 6"/>',
             };
-            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${name === 'refresh' ? 2 : 1.7}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
         };
         root.innerHTML = `
             <style>
@@ -355,12 +369,13 @@
                 .menu-separator { height: 1px; margin: 4px 8px; background: var(--line); }
                 .body { flex: 1; min-height: 0; overflow: auto; background: var(--content); border-top: 1px solid var(--line); scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
                 table { width: 100%; min-width: 540px; table-layout: fixed; border-collapse: separate; border-spacing: 0; text-align: left; font-size: 13px; }
-                .index { width: 58px; } .song { width: 40%; } .artist { width: 24%; }
+                .index { width: 64px; } .song { width: 40%; } .artist { width: 24%; }
                 th { position: sticky; top: 0; z-index: 1; font-size: 11px; font-weight: 500; color: var(--muted); background: var(--thead); }
                 th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); }
-                th:first-child, td:first-child { padding-left: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+                th:first-child, td:first-child { padding: 13px 12px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
                 th:last-child, td:last-child { padding-right: 28px; }
                 td { height: 47px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+                td:first-child { overflow: visible; text-overflow: clip; }
                 td:nth-child(2) { color: var(--text); font-weight: 500; }
                 tbody tr:last-child td { border-bottom: 0; }
                 tbody tr:hover td { background: var(--control); }
@@ -371,8 +386,7 @@
                     header { padding: 20px 20px 17px; gap: 10px; } h2 { font-size: 21px; }
                     nav { padding: 0 20px 16px; gap: 6px; } nav > button { padding: 8px 11px; }
                     button, .icon-button, summary { min-height: 40px; } .icon-button, summary { width: 40px; }
-                    nav > button svg { display: none; } footer { padding: 12px 20px; }
-                    th:first-child, td:first-child { padding-left: 20px; }
+                    nav > button:not(.icon-button) > svg { display: none; } footer { padding: 12px 20px; }
                 }
                 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
                 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {

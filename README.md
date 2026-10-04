@@ -57,4 +57,4 @@ npm run check
 
 ## 许可
 
-[MIT](LICENSE)
+[MIT](LICENSE)。刷新图标使用 [Lucide refresh-cw](https://lucide.dev/icons/refresh-cw)，遵循 ISC 许可，版权与许可声明已随源代码和安装脚本保留。
