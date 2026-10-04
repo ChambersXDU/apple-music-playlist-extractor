@@ -14,15 +14,44 @@
     const TITLE_SELECTOR = '[data-testid="track-title"], [data-testid="song-name"], '
         + '[class*="song-name"], [class*="track-title"], [class*="trackName"], [class*="item-title"]';
     const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
+    function collectionInfo(url) {
+        try {
+            const path = new URL(url, 'https://music.apple.com').pathname;
+            const library = path.match(/^\/library\/(playlist|playlists|album|albums)\/([^/]+)\/?$/);
+            if (library) return { kind: library[1].startsWith('album') ? 'album' : 'playlist', id: library[2], library: true };
+            const catalog = path.match(/^\/[^/]+\/(playlist|album)\/(?:[^/]+\/)?([^/]+)\/?$/);
+            return catalog ? { kind: catalog[1], id: catalog[2], library: false } : null;
+        } catch { return null; }
+    }
     const playlistId = url => {
-        try { return new URL(url, 'https://music.apple.com').pathname.match(/^\/[^/]+\/playlist\/(?:[^/]+\/)?([^/]+)\/?$/)?.[1] || ''; }
-        catch { return ''; }
+        const collection = collectionInfo(url);
+        return collection?.kind === 'playlist' ? collection.id : '';
     };
+    const sameCollection = (a, b) => {
+        const first = collectionInfo(a), second = collectionInfo(b);
+        return Boolean(first && second && first.kind === second.kind && first.id === second.id && first.library === second.library);
+    };
+
+    function pageContext(doc, url) {
+        if (collectionInfo(url)?.kind !== 'album') return {};
+        const main = doc.querySelector('main, [role="main"]') || doc.body;
+        const title = main?.querySelector('h1');
+        const header = title?.closest('[data-testid="section-container"], [data-testid="album-header"]')
+            || title?.parentElement?.parentElement;
+        const artistSelector = 'a[href*="/artist/"], a[href*="/library/artists/"]';
+        let artists = [...(header?.querySelectorAll(artistSelector) || [])].map(link => clean(link.textContent)).filter(Boolean);
+        if (!artists.length) {
+            const artist = [...(main?.querySelectorAll(artistSelector) || [])].find(link => !link.closest(ROW_SELECTORS.join(',')));
+            if (artist) artists = [clean(artist.textContent)];
+        }
+        return { album: clean(title?.textContent), artist: [...new Set(artists)].join('、') };
+    }
 
     function songId(url) {
         try {
             const u = new URL(url, 'https://music.apple.com');
-            return u.searchParams.get('i') || u.pathname.match(/\/song\/(?:[^/]+\/)?(\d+)\/?$/)?.[1] || '';
+            return u.searchParams.get('i') || u.pathname.match(/\/song\/(?:[^/]+\/)?(\d+)\/?$/)?.[1]
+                || u.pathname.match(/^\/library\/songs\/([^/]+)\/?$/)?.[1] || '';
         } catch { return ''; }
     }
 
@@ -36,7 +65,7 @@
         return '';
     }
 
-    function parseRow(row) {
+    function parseRow(row, context = {}) {
         if (row.querySelector('[role="columnheader"]') || /header/i.test(row.className || '')) return null;
         const songLink = [...row.querySelectorAll('a[href]')].find(a => songId(a.href));
         let name = firstText(row.querySelector(TITLE_SELECTOR)) || clean(songLink?.textContent);
@@ -49,16 +78,16 @@
             }
         }
         if (!name) return null;
-        const artists = [...row.querySelectorAll('a[href*="/artist/"]')].map(a => clean(a.textContent)).filter(Boolean);
-        const albumLink = [...row.querySelectorAll('a[href*="/album/"]')].find(a => !songId(a.href));
+        const artists = [...row.querySelectorAll('a[href*="/artist/"], a[href*="/library/artists/"]')].map(a => clean(a.textContent)).filter(Boolean);
+        const albumLink = [...row.querySelectorAll('a[href*="/album/"], a[href*="/library/albums/"]')].find(a => !songId(a.href));
         const positionText = clean(row.querySelector('[data-testid="track-number"], [class*="song-number"], [class*="track-number"]')?.textContent);
         const dataRow = row.getAttribute('data-row');
         const position = dataRow != null && /^\d+$/.test(dataRow) ? Number(dataRow) + 1
             : /^\d+$/.test(positionText) ? Number(positionText) : Number(row.getAttribute('aria-rowindex')) || null;
         return {
             name,
-            artist: [...new Set(artists)].join('、') || clean(row.querySelector('[data-testid="track-artist"], [class*="song-artist"]')?.textContent),
-            album: clean(albumLink?.textContent) || clean(row.querySelector('[data-testid="track-album"], [class*="song-album"]')?.textContent),
+            artist: [...new Set(artists)].join('、') || clean(row.querySelector('[data-testid="track-artist"], [class*="song-artist"], [data-testid="track-column-secondary"], [data-testid="track-title-by-line"]')?.textContent) || context.artist || '',
+            album: clean(albumLink?.textContent) || clean(row.querySelector('[data-testid="track-album"], [class*="song-album"], [data-testid="track-column-tertiary"]')?.textContent) || context.album || '',
             id: songId(songLink?.href), position,
         };
     }
@@ -71,24 +100,32 @@
     }
 
     function readEmbedded(doc, url) {
-        const id = playlistId(url);
+        const collection = collectionInfo(url);
+        const id = collection?.id;
         const empty = { songs: [], expected: null };
         if (!id) return empty;
         try {
             const raw = doc.querySelector('script#serialized-server-data[type="application/json"]')?.textContent;
             if (!raw) return empty;
             const payload = JSON.parse(raw);
-            const entry = payload.data?.find(item => item.intent?.contentDescriptor?.kind === 'playlist'
-                && item.intent.contentDescriptor.identifiers?.storeAdamID === id);
+            const entry = payload.data?.find(item => {
+                const descriptor = item.intent?.contentDescriptor;
+                const kind = String(descriptor?.kind || '').replace(/^library[-_]?/i, '').toLowerCase();
+                return kind === collection.kind && Object.values(descriptor?.identifiers || {}).some(value => String(value) === id);
+            });
             if (!entry) return empty;
             const sections = entry.data?.sections || [];
             const header = sections.flatMap(section => section.items || []).find(item => Number.isInteger(item.trackCount));
             const section = sections.find(s => s.itemKind === 'trackLockup' && s.id === `track-list - ${id}`);
-            const songs = (section?.items || []).filter(item => ['song', 'musicVideo'].includes(item.contentDescriptor?.kind)).map((item, index) => ({
+            const context = pageContext(doc, url);
+            const albumHeader = collection.kind === 'album' ? header : null;
+            const songs = (section?.items || []).filter(item => ['song', 'musicVideo', 'librarySong', 'library-song', 'libraryMusicVideo'].includes(item.contentDescriptor?.kind)).map((item, index) => ({
                 name: clean(item.title),
-                artist: clean(item.artistName) || (item.subtitleLinks || []).map(link => clean(link.title)).filter(Boolean).join('、'),
-                album: (item.tertiaryLinks || []).map(link => clean(link.title)).filter(Boolean).join('、'),
-                id: String(item.contentDescriptor.identifiers?.storeAdamID || ''),
+                artist: clean(item.artistName) || (item.subtitleLinks || []).map(link => clean(link.title)).filter(Boolean).join('、')
+                    || context.artist || clean(albumHeader?.artistName),
+                album: clean(item.albumName) || (item.tertiaryLinks || []).map(link => clean(link.title)).filter(Boolean).join('、')
+                    || context.album || clean(albumHeader?.title),
+                id: String(item.contentDescriptor.identifiers?.storeAdamID || item.contentDescriptor.identifiers?.libraryAdamID || ''),
                 position: index + 1,
             })).filter(song => song.name);
             return { songs, expected: Number.isInteger(header?.trackCount) ? header.trackCount : null };
@@ -126,10 +163,10 @@
 
     function expectedCount(doc, url) {
         const footer = doc.querySelector('[data-testid="tracklist-footer-description"], [data-testid="tracklist-footer"]');
-        const match = clean(footer?.textContent).match(/^([\d,，.\s]+)\s*(?:首歌曲|首歌|songs?\b|tracks?\b|曲)/i);
+        const match = String(footer?.textContent || '').match(/\b((?:\d{1,3}(?:[ ,，.\u00a0]\d{3})+)|\d+)\s*(?:首歌曲|首歌|songs?\b|tracks?\b|曲)/i);
         if (match) return Number(match[1].replace(/\D/g, ''));
         const canonical = doc.querySelector('link[rel="canonical"]')?.href;
-        if (playlistId(canonical) !== playlistId(url)) return null;
+        if (!sameCollection(canonical, url)) return null;
         const count = doc.querySelector('meta[property="music:song_count"]')?.content;
         return count != null && /^\d+$/.test(count) ? Number(count) : null;
     }
@@ -165,6 +202,7 @@
     async function scan(doc, { signal, onProgress = () => {}, interval = 500, maxDuration = 120000, idleDuration = 3500 } = {}) {
         const url = doc.defaultView.location.href;
         const embedded = readEmbedded(doc, url);
+        const context = pageContext(doc, url);
         const collector = createCollector();
         embedded.songs.forEach(song => collector.add(song));
         let expected = embedded.expected ?? expectedCount(doc, url);
@@ -175,18 +213,18 @@
         };
         check();
         if (expected != null && collector.size >= expected) return result('embedded');
-        const capture = () => findRows(doc).forEach(row => collector.add(parseRow(row)));
+        const capture = () => findRows(doc).forEach(row => collector.add(parseRow(row, context)));
         capture();
         if (expected != null && collector.size >= expected) return result('count');
         // Hydration removes the initial JSON script. Fetch only this same playlist,
         // and parse as an inert document; no page scripts or assets are executed.
-        if (typeof doc.defaultView.fetch === 'function') {
+        if (!collectionInfo(url)?.library && typeof doc.defaultView.fetch === 'function') {
             try {
                 const fetchSignal = doc.defaultView.AbortSignal.any([
                     ...(signal ? [signal] : []), doc.defaultView.AbortSignal.timeout(8000),
                 ]);
                 const response = await doc.defaultView.fetch(url, { signal: fetchSignal });
-                if (response.ok && playlistId(response.url) === playlistId(url)) {
+                if (response.ok && sameCollection(response.url, url)) {
                     const snapshot = new doc.defaultView.DOMParser().parseFromString(await response.text(), 'text/html');
                     const fresh = readEmbedded(snapshot, url);
                     fresh.songs.forEach(song => collector.add(song));
@@ -415,7 +453,7 @@
                     </div></details>
                 </nav>
                 <div class="body"><table><colgroup><col class="index"><col class="song"><col class="artist"><col></colgroup><thead><tr><th scope="col">#</th><th scope="col">歌曲</th><th scope="col">歌手</th><th scope="col">专辑</th></tr></thead><tbody></tbody></table></div>
-                <footer id="status" role="status" aria-live="polite">点击扫描当前歌单</footer>
+                <footer id="status" role="status" aria-live="polite">点击扫描当前歌曲列表</footer>
             </dialog><div id="notice" role="status" hidden></div>`;
         document.body.appendChild(host);
         const $ = selector => root.querySelector(selector);
@@ -446,7 +484,7 @@
             if (!songs.length) {
                 const row = document.createElement('tr'), cell = document.createElement('td');
                 cell.colSpan = 4;
-                cell.textContent = '尚无歌曲。请等待歌单加载，或重新扫描。';
+                cell.textContent = '尚无歌曲。请等待歌曲列表加载，或重新扫描。';
                 row.appendChild(cell);
                 fragment.appendChild(row);
             }
@@ -460,11 +498,11 @@
             root.querySelectorAll('[data-copy], [data-download]').forEach(button => { button.disabled = value || !songs.length; });
         }
         async function doScan() {
-            if (controller || !playlistId(location.href)) return;
+            if (controller || !collectionInfo(location.href)) return;
             const current = new AbortController();
             controller = current;
             busy(true);
-            setStatus('正在读取歌单数据…');
+            setStatus('正在读取歌曲数据…');
             try {
                 const result = await scan(document, { signal: current.signal,
                     onProgress: (count, total) => setStatus(`正在加载：已收集 ${count}${total == null ? '' : ` / ${total}`} 首，可取消`) });
@@ -523,8 +561,11 @@
         $('#diagnose').addEventListener('click', () => {
             const rows = findRows(document);
             const embedded = readEmbedded(document, location.href);
-            void copy(JSON.stringify({ version, playlistId: playlistId(location.href), visibleRows: rows.length,
-                embeddedSongs: embedded.songs.length, expected: embedded.expected, firstRow: rows[0] ? parseRow(rows[0]) : null }, null, 2));
+            const first = rows[0];
+            void copy(JSON.stringify({ version, collection: collectionInfo(location.href), context: pageContext(document, location.href), visibleRows: rows.length,
+                embeddedSongs: embedded.songs.length, expected: embedded.expected, firstRow: first ? parseRow(first, pageContext(document, location.href)) : null,
+                firstRowFields: first ? [...first.querySelectorAll('[data-testid="track-column-secondary"], [data-testid="track-column-tertiary"]')].map(cell => ({ field: cell.getAttribute('data-testid'), text: clean(cell.textContent), links: [...cell.querySelectorAll('a[href]')].map(link => ({ text: clean(link.textContent), href: link.getAttribute('href') })) })) : [],
+                missingAlbums: songs.filter(song => song.album === '未知专辑').length }, null, 2));
         });
         function checkRoute() {
             const next = location.href;
@@ -533,9 +574,14 @@
                 if (dialog.open) dialog.close();
                 songs = []; scanned = false; route = next; render();
                 busy(Boolean(controller));
-                setStatus('点击扫描当前歌单');
+                setStatus('点击扫描当前歌曲列表');
             }
-            $('#launch').hidden = !playlistId(next);
+            const collection = collectionInfo(next);
+            $('#launch').hidden = !collection;
+            const label = collection?.kind === 'album' ? '提取专辑歌曲' : '提取歌单歌曲';
+            $('#launch').title = label;
+            $('#launch').setAttribute('aria-label', label);
+            $('#heading').textContent = collection?.kind === 'album' ? '专辑歌曲' : '歌单歌曲';
         }
         checkRoute(); render(); busy(false);
         // Apple Music navigates without a document reload, including from non-playlist pages.
@@ -546,5 +592,5 @@
         });
     }
 
-    return { playlistId, songId, parseRow, findRows, readEmbedded, expectedCount, createCollector, publicSongs, scan, format, boot };
+    return { collectionInfo, pageContext, playlistId, songId, parseRow, findRows, readEmbedded, expectedCount, createCollector, publicSongs, scan, format, boot };
 });

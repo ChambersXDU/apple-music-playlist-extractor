@@ -20,7 +20,7 @@ const metadata = `// ==UserScript==
 // @name         Apple Music 歌单歌曲提取器
 // @namespace    http://tampermonkey.net/
 // @version      ${version}
-// @description  提取 Apple Music 歌单，支持完整加载、复制和 CSV/JSON 下载
+// @description  提取 Apple Music 歌单与专辑，支持资料库、完整加载、复制和 CSV/JSON 下载
 // @author       ChambersXDU
 // @match        https://music.apple.com/*
 // @grant        GM_setClipboard

@@ -1,6 +1,6 @@
 # Apple Music 歌单歌曲提取器
 
-一个 Tampermonkey 用户脚本，用于从 Apple Music 网页歌单提取歌名、歌手和专辑，复制或下载歌曲列表。支持不同国家与地区的 Apple Music 页面，以及网站内部切换歌单。
+一个 Tampermonkey 用户脚本，用于从 Apple Music 网页歌单与专辑提取歌名、歌手和专辑，复制或下载歌曲列表。支持不同国家与地区的公开歌单、公开专辑，以及登录后的资料库歌单和资料库专辑，支持网站内部切换页面。
 
 **[点击安装最新版本](https://raw.githubusercontent.com/ChambersXDU/apple-music-playlist-extractor/main/apple-music-playlist-extractor.user.js)** · [反馈问题](https://github.com/ChambersXDU/apple-music-playlist-extractor/issues) · [自动发布状态](https://github.com/ChambersXDU/apple-music-playlist-extractor/actions)
 
@@ -8,13 +8,14 @@
 
 1. 在浏览器中安装 [Tampermonkey](https://www.tampermonkey.net/)。
 2. 点击上面的安装链接，在 Tampermonkey 中确认安装。如果浏览器只显示代码，可将代码复制到 Tampermonkey 的新脚本编辑器并保存。
-3. 打开 `music.apple.com` 上的歌单，等待歌曲列表加载，点击右下角 🎵。
+3. 打开 `music.apple.com` 上的歌单或专辑，等待歌曲列表加载，点击右下角 🎵。
 4. 查看扫描结果后，选择复制表格、CSV、列表、JSON，或下载 CSV / JSON。表格采用制表符分隔，方便粘贴到表格软件；CSV 下载带 UTF-8 BOM，便于 Excel 识别中文。
 
 从原版 v2.1 升级时，脚本名称和 namespace 保持一致。可从安装链接覆盖安装；如果原版没有更新地址，需要手动安装这一次，新版之后会检查更新。
 
 ## 相比 v2.1 的改进
 
+- 支持 `/library/playlist/…` 与 `/library/albums/…`。资料库专辑链接与纯文本专辑列均可读取；专辑页中未在每行重复展示的专辑名和歌手可从页面标题补全，混合歌单仍逐首读取。
 - 按歌曲在歌单中的位置与歌曲 ID 收集，保留不同歌手的同名歌曲、不同版本以及有位置编号的重复曲目。只有身份信息缺失时才使用“歌名 + 歌手 + 专辑”组合去重。
 - 优先读取与当前歌单 ID 匹配的页面内嵌数据。Apple Music 页面渲染后可能移除该数据；当当前歌曲列表还不完整时，会尝试重新读取当前歌单的 HTML，不执行其中的脚本。
 - 对剩余的动态列表逐段滚动，并在每次滚动时收集歌曲，兼容回收旧歌曲行的虚拟列表。结束或取消时恢复滚动位置。

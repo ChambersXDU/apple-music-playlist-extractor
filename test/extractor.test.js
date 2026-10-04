@@ -24,6 +24,55 @@ test('all storefronts and short playlist URLs, without matching albums', () => {
     assert.equal(api.playlistId('https://music.apple.com/jp/album/test/12'), '');
 });
 
+test('library playlists and albums have distinct supported collection identities', () => {
+    assert.deepEqual(api.collectionInfo('https://music.apple.com/library/playlist/p.example'), { kind: 'playlist', id: 'p.example', library: true });
+    assert.deepEqual(api.collectionInfo('https://music.apple.com/library/albums/l.example'), { kind: 'album', id: 'l.example', library: true });
+    assert.deepEqual(api.collectionInfo('https://music.apple.com/cn/album/title/123'), { kind: 'album', id: '123', library: false });
+    assert.equal(api.collectionInfo('https://music.apple.com/library/albums'), null);
+    assert.equal(api.collectionInfo('https://music.apple.com/cn/new'), null);
+});
+
+test('library artist and album links are read without catalog URL assumptions', () => {
+    const dom = page('<div class="songs-list-row" data-row="0"><div data-testid="track-title">Song</div><a href="/library/artists/l.artist">Artist</a><a href="/library/albums/l.album">Album</a></div>');
+    const song = api.parseRow(dom.window.document.body.firstElementChild);
+    assert.equal(song.artist, 'Artist');
+    assert.equal(song.album, 'Album');
+    dom.window.close();
+});
+
+test('non-link library metadata is read from the artist and album columns', () => {
+    const dom = page('<div class="songs-list-row" data-row="0"><div data-testid="track-title">Song</div><div data-testid="track-column-secondary"><span>Artist</span></div><div data-testid="track-column-tertiary"><span role="link">Album</span></div></div>');
+    const song = api.parseRow(dom.window.document.body.firstElementChild);
+    assert.equal(song.artist, 'Artist');
+    assert.equal(song.album, 'Album');
+    dom.window.close();
+});
+
+test('album pages use the header album and artist when track rows omit these columns', async () => {
+    const albumUrl = 'https://music.apple.com/library/albums/l.example';
+    const dom = new JSDOM('<main><section data-testid="section-container"><h1>Example Album</h1><a href="/cn/artist/example/123">Example Artist</a></section><div class="songs-list-row" data-row="0"><div data-testid="track-title">Song</div></div><div data-testid="tracklist-footer-description">28 December 2007\n1 song, 4 minutes</div></main>', { url: albumUrl, runScripts: 'outside-only' });
+    dom.window.fetch = () => { throw new Error('Library pages should not refetch their app shell'); };
+    const result = await api.scan(dom.window.document);
+    assert.deepEqual(result.songs, [{ name: 'Song', artist: 'Example Artist', album: 'Example Album' }]);
+    assert.equal(result.complete, true);
+    dom.window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+    dom.window.eval(readFileSync(require.resolve('../src/extractor.js'), 'utf8'));
+    const root = dom.window.document.querySelector('#am-extractor-host').shadowRoot;
+    assert.equal(root.querySelector('#launch').hidden, false);
+    assert.equal(root.querySelector('#launch').getAttribute('aria-label'), '提取专辑歌曲');
+    root.querySelector('#launch').click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(root.querySelector('#heading').textContent, '专辑歌曲');
+    assert.equal(root.querySelector('tbody td:last-child').textContent, 'Example Album');
+    dom.window.close();
+});
+
+test('album header fallback never assigns one album to a mixed playlist', () => {
+    const dom = page('<main><h1>My Playlist</h1><a href="/cn/artist/example/123">Example Artist</a></main>');
+    assert.deepEqual(api.pageContext(dom.window.document, url), {});
+    dom.window.close();
+});
+
 test('real Apple row shape: nested wrappers do not suppress rows or repeat artists', () => {
     const dom = page(`<main><div role="row"><div role="columnheader">歌曲</div></div>${row('Same')}${row('Same', 'Other', 'Live', 1, 2)}</main>`);
     const rows = api.findRows(dom.window.document);
