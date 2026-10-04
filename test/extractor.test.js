@@ -191,6 +191,6 @@ test('UI renders song text safely and reuses one host', async () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(root.querySelector('tbody td:nth-child(2)').textContent, dangerous);
     assert.equal(root.querySelector('tbody img'), null);
-    assert.match(root.querySelector('#status').textContent, /扫描完成/);
+    assert.equal(root.querySelector('#status').textContent, '已提取全部歌曲');
     dom.window.close();
 });

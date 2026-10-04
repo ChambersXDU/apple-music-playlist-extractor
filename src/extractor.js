@@ -255,43 +255,152 @@
         const host = document.createElement('div');
         host.id = 'am-extractor-host';
         const root = host.attachShadow({ mode: 'open' });
+        const icon = (name, size = 18) => {
+            const paths = {
+                music: '<path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/>',
+                copy: '<rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+                download: '<path d="M12 3v12m-4-4 4 4 4-4M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/>',
+                refresh: '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.5-2L20 8M4 16l2.4 3A7 7 0 0 0 17.9 17"/>',
+                more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+                close: '<path d="m6 6 12 12M6 18 18 6"/>',
+            };
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+        };
         root.innerHTML = `
             <style>
-                :host { all: initial; color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+                :host {
+                    all: initial; color-scheme: light dark;
+                    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+                    --text: #1d1d1f; --muted: #62626a; --accent: #d91442; --primary: #d91442; --on-accent: #fff;
+                    --solid: #f7f7fa; --glass: rgba(250, 250, 253, .84); --content: rgba(255, 255, 255, .22);
+                    --line: rgba(35, 35, 50, .09); --edge: rgba(255, 255, 255, .8); --glint: rgba(255, 255, 255, .55);
+                    --control: rgba(80, 80, 100, .065); --hover: rgba(80, 80, 100, .11);
+                    --menu: #fbfbfd; --thead: #f0f0f5; --shade: rgba(20, 20, 30, .2);
+                    --shadow: 0 24px 80px rgba(0, 0, 0, .18), 0 4px 16px rgba(0, 0, 0, .06);
+                    --material: blur(32px) saturate(155%);
+                }
+                @media (prefers-color-scheme: dark) {
+                    :host {
+                        --text: #f5f5f7; --muted: #b9b9c2; --accent: #ff375f; --primary: #df1b49;
+                        --solid: #252529; --glass: rgba(35, 35, 40, .86); --content: rgba(0, 0, 0, .06);
+                        --line: rgba(255, 255, 255, .09); --edge: rgba(255, 255, 255, .18); --glint: rgba(255, 255, 255, .065);
+                        --control: rgba(255, 255, 255, .08); --hover: rgba(255, 255, 255, .13);
+                        --menu: #303035; --thead: #2b2b30; --shade: rgba(0, 0, 0, .32);
+                        --shadow: 0 28px 90px rgba(0, 0, 0, .4), 0 4px 18px rgba(0, 0, 0, .2);
+                    }
+                }
                 * { box-sizing: border-box; }
-                button { font: inherit; color: #f5f5f7; cursor: pointer; border: 1px solid #ffffff24; background: #ffffff0c; border-radius: 8px; padding: 8px 12px; }
-                button:hover { background: #ffffff22; }
-                button:focus-visible { outline: 2px solid #ff6b79; outline-offset: 3px; }
-                button:disabled { cursor: default; opacity: .4; }
                 [hidden] { display: none !important; }
-                #launch { position: fixed; right: 24px; bottom: 100px; z-index: 2147483646; width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%; font-size: 25px; background: linear-gradient(135deg, #fc3c44, #e8175d); box-shadow: 0 4px 20px #fc3c4460; }
-                dialog { width: min(850px, 94vw); max-height: 85dvh; padding: 0; color: #f5f5f7; background: #1c1c1e; border: 1px solid #ffffff20; border-radius: 16px; box-shadow: 0 12px 60px #0009; }
-                dialog[open] { display: flex; flex-direction: column; }
-                dialog::backdrop { background: #0008; backdrop-filter: blur(4px); }
-                header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #ffffff18; }
-                h2 { flex: 1; margin: 0; font-size: 18px; }
-                #count { color: #b9b9bf; font-size: 13px; }
-                nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px; font-size: 13px; }
-                .body { overflow: auto; min-height: 100px; }
-                table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-                th { position: sticky; top: 0; background: #2c2c2e; color: #b9b9bf; }
-                th, td { padding: 10px 14px; border-bottom: 1px solid #ffffff0c; }
-                td { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-                tr:hover td { background: #ffffff08; }
-                footer { padding: 12px 20px; border-top: 1px solid #ffffff18; color: #b9b9bf; font-size: 12px; line-height: 1.5; }
-                #notice { position: fixed; bottom: 35px; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: 12px; background: #333; color: white; z-index: 2147483647; font-size: 14px; max-width: 90vw; }
-                @media (max-width: 600px) { th, td { padding: 8px; } nav, header, footer { padding: 12px; } td { max-width: 140px; } }
+                button, summary { -webkit-tap-highlight-color: transparent; }
+                button {
+                    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+                    min-height: 36px; padding: 8px 14px; border: 0; border-radius: 999px;
+                    font: inherit; font-size: 13px; font-weight: 500; color: var(--text);
+                    background: var(--control); cursor: pointer; white-space: nowrap;
+                    transition: background .16s ease, transform .16s ease;
+                }
+                button:hover, summary:hover { background: var(--hover); }
+                button:active:not(:disabled) { transform: scale(.97); }
+                button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+                button:disabled { cursor: default; opacity: .4; }
+                button svg { flex: none; }
+                #launch, dialog, #notice {
+                    background: var(--solid);
+                    border: 1px solid var(--edge);
+                    box-shadow: var(--shadow), inset 0 1px 0 var(--glint);
+                }
+                @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+                    #launch, dialog, #notice {
+                        background: linear-gradient(145deg, var(--glint), transparent 55%), var(--glass);
+                        -webkit-backdrop-filter: var(--material); backdrop-filter: var(--material);
+                    }
+                }
+                #launch {
+                    position: fixed; right: 24px; bottom: 100px; z-index: 2147483646;
+                    width: 52px; height: 52px; padding: 0; color: var(--accent);
+                    box-shadow: 0 8px 28px rgba(0, 0, 0, .16), inset 0 1px 0 var(--glint);
+                }
+                #launch:hover { transform: translateY(-2px); }
+                dialog {
+                    width: min(860px, calc(100vw - 40px)); max-height: 84vh; max-height: 84dvh;
+                    padding: 0; color: var(--text); border-radius: 26px; overflow: hidden;
+                }
+                dialog[open] { display: flex; flex-direction: column; animation: appear .2s ease-out; }
+                dialog::backdrop { background: var(--shade); }
+                @keyframes appear { from { transform: translateY(8px); } to { transform: translateY(0); } }
+                header { display: flex; align-items: flex-start; gap: 16px; padding: 25px 28px 19px; flex: none; }
+                .heading { flex: 1; min-width: 0; }
+                h2 { margin: 0; font-size: 23px; font-weight: 650; letter-spacing: -.6px; line-height: 1.25; }
+                #playlist-name { margin: 7px 0 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                #count { margin-top: 3px; padding: 6px 10px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); background: var(--control); border-radius: 999px; white-space: nowrap; }
+                .icon-button, summary { width: 34px; min-height: 34px; padding: 0; flex: none; }
+                #close { color: var(--muted); }
+                nav { display: flex; align-items: center; gap: 9px; padding: 0 28px 20px; flex: none; }
+                .primary { color: var(--on-accent); background: var(--primary); box-shadow: 0 2px 8px rgba(215, 20, 66, .12); }
+                .primary:hover { background: var(--primary); filter: brightness(.96); }
+                .spacer { flex: 1; }
+                #more { position: relative; }
+                summary { display: flex; align-items: center; justify-content: center; list-style: none; border-radius: 50%; cursor: pointer; color: var(--muted); transition: background .16s ease; }
+                summary::-webkit-details-marker { display: none; }
+                #more[open] summary { background: var(--hover); }
+                .more-menu {
+                    position: absolute; top: calc(100% + 8px); right: 0; z-index: 3;
+                    display: grid; gap: 2px; min-width: 172px; padding: 6px;
+                    max-height: min(300px, calc(84dvh - 180px)); overflow: auto;
+                    background: var(--menu); border: 1px solid var(--line); border-radius: 16px;
+                    box-shadow: 0 12px 36px rgba(0, 0, 0, .18);
+                }
+                .more-menu button { width: 100%; justify-content: flex-start; border-radius: 10px; background: transparent; min-height: 34px; }
+                .more-menu button:hover { background: var(--hover); }
+                .menu-separator { height: 1px; margin: 4px 8px; background: var(--line); }
+                .body { flex: 1; min-height: 0; overflow: auto; background: var(--content); border-top: 1px solid var(--line); scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
+                table { width: 100%; min-width: 540px; table-layout: fixed; border-collapse: separate; border-spacing: 0; text-align: left; font-size: 13px; }
+                .index { width: 58px; } .song { width: 40%; } .artist { width: 24%; }
+                th { position: sticky; top: 0; z-index: 1; font-size: 11px; font-weight: 500; color: var(--muted); background: var(--thead); }
+                th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+                th:first-child, td:first-child { padding-left: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+                th:last-child, td:last-child { padding-right: 28px; }
+                td { height: 47px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+                td:nth-child(2) { color: var(--text); font-weight: 500; }
+                tbody tr:last-child td { border-bottom: 0; }
+                tbody tr:hover td { background: var(--control); }
+                footer { flex: none; padding: 14px 28px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.5; }
+                #notice { position: fixed; bottom: 35px; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: 999px; color: var(--text); z-index: 2147483647; font-size: 13px; max-width: 90vw; }
+                @media (max-width: 600px) {
+                    dialog { width: calc(100vw - 24px); border-radius: 22px; }
+                    header { padding: 20px 20px 17px; gap: 10px; } h2 { font-size: 21px; }
+                    nav { padding: 0 20px 16px; gap: 6px; } nav > button { padding: 8px 11px; }
+                    button, .icon-button, summary { min-height: 40px; } .icon-button, summary { width: 40px; }
+                    nav > button svg { display: none; } footer { padding: 12px 20px; }
+                    th:first-child, td:first-child { padding-left: 20px; }
+                }
+                @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+                @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+                    #launch, dialog, #notice { background: var(--solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+                    .body { background: var(--solid); }
+                }
+                @media (forced-colors: active) {
+                    #launch, dialog, #notice, .more-menu { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+                    button, summary, #count, td, th, footer, #playlist-name, #close { color: CanvasText; }
+                    .primary { background: Highlight; color: HighlightText; } button { border: 1px solid ButtonText; }
+                }
             </style>
-            <button id="launch" title="提取歌单歌曲" aria-label="提取歌单歌曲" hidden>🎵</button>
-            <dialog aria-labelledby="heading">
-                <header><h2 id="heading">🎵 歌单歌曲</h2><span id="count"></span><button id="close" aria-label="关闭">✕</button></header>
+            <button id="launch" title="提取歌单歌曲" aria-label="提取歌单歌曲" hidden>${icon('music', 24)}</button>
+            <dialog aria-labelledby="heading" aria-describedby="playlist-name">
+                <header><div class="heading"><h2 id="heading">歌单歌曲</h2><p id="playlist-name">Apple Music</p></div><span id="count"></span><button id="close" class="icon-button" aria-label="关闭">${icon('close', 16)}</button></header>
                 <nav aria-label="导出与扫描">
-                    <button data-copy="table">复制表格</button><button data-copy="csv">复制 CSV</button>
-                    <button data-copy="list">复制列表</button><button data-copy="json">复制 JSON</button>
-                    <button data-download="csv">下载 CSV</button><button data-download="json">下载 JSON</button>
-                    <button id="rescan">重新扫描</button><button id="stop" hidden>取消扫描</button><button id="diagnose">诊断</button>
+                    <button class="primary" data-copy="table">${icon('copy', 16)}复制表格</button>
+                    <button data-download="csv">${icon('download', 16)}导出 CSV</button>
+                    <span class="spacer"></span>
+                    <button id="rescan" class="icon-button" title="重新扫描" aria-label="重新扫描">${icon('refresh')}</button>
+                    <button id="stop" hidden>取消</button>
+                    <details id="more"><summary aria-label="更多操作" title="更多操作">${icon('more')}</summary><div class="more-menu">
+                        <button data-copy="csv">复制 CSV</button><button data-copy="list">复制列表</button><button data-copy="json">复制 JSON</button>
+                        <div class="menu-separator" role="separator"></div><button data-download="json">导出 JSON</button>
+                        <div class="menu-separator" role="separator"></div><button id="diagnose">复制诊断信息</button>
+                    </div></details>
                 </nav>
-                <div class="body"><table><thead><tr><th>#</th><th>歌曲</th><th>歌手</th><th>专辑</th></tr></thead><tbody></tbody></table></div>
+                <div class="body"><table><colgroup><col class="index"><col class="song"><col class="artist"><col></colgroup><thead><tr><th scope="col">#</th><th scope="col">歌曲</th><th scope="col">歌手</th><th scope="col">专辑</th></tr></thead><tbody></tbody></table></div>
                 <footer id="status" role="status" aria-live="polite">点击扫描当前歌单</footer>
             </dialog><div id="notice" role="status" hidden></div>`;
         document.body.appendChild(host);
@@ -300,7 +409,7 @@
         const version = typeof GM_info === 'object' ? GM_info.script.version : 'dev';
         let songs = [], controller = null, noticeTimer, scanned = false;
         let route = location.href;
-        const setStatus = text => { $('#status').textContent = `${text} · v${version}`; };
+        const setStatus = text => { $('#status').textContent = text; };
         const notify = text => {
             const notice = $('#notice');
             notice.textContent = text;
@@ -328,7 +437,8 @@
                 fragment.appendChild(row);
             }
             $('tbody').replaceChildren(fragment);
-            $('#count').textContent = `共 ${songs.length} 首`;
+            $('#count').textContent = `${songs.length} 首`;
+            $('#playlist-name').textContent = clean(document.querySelector('h1')?.textContent) || 'Apple Music';
         }
         function busy(value) {
             $('#rescan').disabled = value;
@@ -348,7 +458,7 @@
                 songs = result.songs;
                 scanned = true;
                 render();
-                if (result.complete) setStatus(`扫描完成，共 ${songs.length} 首`);
+                if (result.complete) setStatus('已提取全部歌曲');
                 else if (result.reason === 'timeout') setStatus(`已达扫描时间上限，提取 ${songs.length} 首；可重新扫描`);
                 else if (result.expected != null) setStatus(`提取 ${songs.length} / ${result.expected} 首，页面可能仍有未加载或不可用歌曲`);
                 else setStatus(`提取 ${songs.length} 首；页面未提供总数，无法确认完整性`);
@@ -366,10 +476,13 @@
                 notify('已复制到剪贴板');
             } catch { notify('复制失败，请使用下载按钮'); }
         }
-        function close() { controller?.abort(); dialog.close(); $('#launch').focus(); }
+        function close() { controller?.abort(); $('#more').open = false; dialog.close(); $('#launch').focus(); }
         $('#launch').addEventListener('click', () => { if (!dialog.open) dialog.showModal(); if (!scanned) void doScan(); });
         $('#close').addEventListener('click', close);
-        dialog.addEventListener('cancel', () => { controller?.abort(); });
+        dialog.addEventListener('cancel', () => { controller?.abort(); $('#more').open = false; });
+        root.addEventListener('click', event => {
+            if (!$('#more').contains(event.target) || event.target.closest('button')) $('#more').open = false;
+        });
         dialog.addEventListener('click', event => {
             const rect = dialog.getBoundingClientRect();
             if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right
