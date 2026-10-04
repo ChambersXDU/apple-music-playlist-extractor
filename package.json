@@ -1,0 +1,13 @@
+{
+  "name": "apple-music-playlist-extractor",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Apple Music playlist extraction userscript with automatic updates",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "check": "node --check src/extractor.js && node --check apple-music-playlist-extractor.user.js"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": { "jsdom": "26.1.0" }
+}
