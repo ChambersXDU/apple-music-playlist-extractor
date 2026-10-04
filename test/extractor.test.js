@@ -93,6 +93,30 @@ test('hydrated DOM plus footer count returns without network or scrolling', asyn
     dom.window.close();
 });
 
+test('removed server JSON is recovered from the same playlist HTML', async () => {
+    const dom = page(`<main>${row('One')}</main><div data-testid="tracklist-footer-description">2 songs, 7 minutes</div>`);
+    dom.window.AbortSignal = AbortSignal;
+    let requested;
+    dom.window.fetch = async address => {
+        requested = address;
+        return { ok: true, url: address, text: async () => script(embedded()) };
+    };
+    const result = await api.scan(dom.window.document);
+    assert.equal(requested, url);
+    assert.equal(result.complete, true);
+    assert.deepEqual(result.songs.map(song => song.name), ['One', 'Two']);
+    dom.window.close();
+});
+
+test('HTML redirects to another playlist do not mix its songs into the result', async () => {
+    const dom = page(`<main>${row('One')}</main>`);
+    dom.window.AbortSignal = AbortSignal;
+    dom.window.fetch = async () => ({ ok: true, url: url.replace('pl.test', 'pl.other'), text: async () => script(embedded(['Wrong'], 'pl.other')) });
+    const result = await api.scan(dom.window.document, { interval: 1, idleDuration: 3, maxDuration: 100 });
+    assert.deepEqual(result.songs.map(song => song.name), ['One']);
+    dom.window.close();
+});
+
 test('virtual rows are accumulated during incremental scrolling and scroll is restored', async () => {
     const dom = page(`<main style="overflow-y:auto"><div id="rows"></div></main>`);
     const main = dom.window.document.querySelector('main');
