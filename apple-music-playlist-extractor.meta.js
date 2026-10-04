@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Apple Music 歌单歌曲提取器
 // @namespace    http://tampermonkey.net/
-// @version      3.0.1791096313
+// @version      3.0.1791097088
 // @description  提取 Apple Music 歌单，支持完整加载、复制和 CSV/JSON 下载
 // @author       ChambersXDU
 // @match        https://music.apple.com/*
